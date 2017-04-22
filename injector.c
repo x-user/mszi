@@ -44,7 +44,7 @@ int main(int argc, char** argv[]) {
 	// fill struct with zeros
 	memset(&startupinfo, 0, sizeof(startupinfo));
 
-	// start paused process
+	// create paused process
 	CreateProcessA(
 			"screenshot.exe",
 			NULL,
@@ -164,9 +164,11 @@ BOOL injectFunct(DWORD dwProcId) {
 								NULL);
 
 						if (hThread) {
-							result = TRUE;
 							// wait until remote thread finish it's work
 							WaitForSingleObject(hThread, INFINITE);
+
+							result = TRUE;
+							CloseHandle(hThread);
 					}	}
 
 					VirtualFreeEx(hProc, mem, 0, MEM_RELEASE);
