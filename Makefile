@@ -1,21 +1,24 @@
 CC = i686-w64-mingw32-gcc
 RC = i686-w64-mingw32-windres
 
-CFLAGS = -O2 -march=i686 -mtune=generic -pipe
+CFLAGS = -O1 -march=i686 -mtune=generic -gdwarf-2 -gstrict-dwarf -fno-optimize-sibling-calls -fno-omit-frame-pointer -fno-inline -fno-unit-at-a-time -pipe
 
-all: clean mszi.exe hook.dll
+all: clean injector.exe hook.dll screenshot.exe
 
 %.o: %.c
-	$(CC) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 %.res: %.rc
 	$(RC) -O coff $< -o $@
 
-mszi.exe: main.o mszi.res
-	$(CC) $(CFLAGS) -Wl,--subsystem,windows $^ -o $@ -lkernel32 -lgdi32 -s
+injector.exe: injector.o mszi.res
+	$(CC) $(CFLAGS) -Wl,--subsystem,windows $^ -o $@ -lkernel32
 
-hook.dll: dllmain.o
-	$(CC) $(CFLAGS) -Wl,--subsystem,windows $^ -o $@ -lkernel32 -lgdi32 -shared -s
+screenshot.exe: screenshot.o mszi.res
+	$(CC) $(CFLAGS) -Wl,--subsystem,windows $^ -o $@ -lkernel32 -lgdi32
+
+hook.dll: hook.o
+	$(CC) $(CFLAGS) -Wl,--subsystem,windows $^ -o $@ -lkernel32 -lgdi32 -shared
 
 clean:
-	rm -vf *.{o,res,dll,exe}
+	rm -vf *.{o,res,exe,dll,bmp}
