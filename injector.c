@@ -36,6 +36,7 @@ InjectStruct inject;
 BOOL injectFunct(DWORD dwProcId);
 
 int main(int argc, char** argv[]) {
+
 	STARTUPINFO startupinfo;
 	PROCESS_INFORMATION procinfo;
 
