@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <windows.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SIZE 6
 
 BOOL WINAPI fake_BitBlt(HDC, int, int, int, int, HDC, int, int, DWORD);
@@ -12,7 +16,6 @@ pBitBlt BitBlt_addr = NULL;
 DWORD oldProtect, newProtect = PAGE_EXECUTE_READWRITE;
 
 void install_hook() {
-	printf("Installing hook.\n");
 	BYTE tempJMP[SIZE] = {0xE9, 0x90, 0x90, 0x90, 0x90, 0xC3};
 	memcpy(JMP, tempJMP, SIZE);
 	DWORD JMPSize = ((DWORD)fake_BitBlt - (DWORD)BitBlt_addr - 5);
@@ -37,11 +40,9 @@ BOOL WINAPI fake_BitBlt(HDC hdcDest,
 		int nYSrc,
 		DWORD dwRop)
 {
-	printf("fake_BitBlt called.\n");
 	if (SRCCOPY == dwRop) {
 		return TRUE;
 	} else {
-		printf("Running original BitBlt.\n");
 		VirtualProtect((LPVOID)BitBlt_addr, SIZE, newProtect, NULL);
 		memcpy(BitBlt_addr, oldBytes, SIZE);
 		BOOL retVal = BitBlt(hdcDest, nXDest, nYDest, nWidth, nHeight, hdcSrc, nXSrc, nYSrc, dwRop);
@@ -57,9 +58,12 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved) {
 		if (NULL != BitBlt_addr)
 			install_hook();
 	} else if (dwReason == DLL_PROCESS_DETACH) {
-		printf("Removing hook.");
 		memcpy(BitBlt_addr, oldBytes, SIZE);
 	}
 
 	return TRUE;
 }
+
+#ifdef __cplusplus
+}
+#endif

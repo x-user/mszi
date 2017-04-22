@@ -1,30 +1,14 @@
 #include <stdio.h>
 #include <windows.h>
 
-void make_screenshot(char* fn);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 PBITMAPINFO create_bitmap_info(HBITMAP hBmp);
 void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, char* filename);
 
 INT APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmdLine, INT nCmdShow) {
-	// make screenshot
-	make_screenshot("Screenshot_1.bmp");
-
-	// load hook library
-	HMODULE hDll = LoadLibraryA("hook.dll");
-	if (NULL == hDll) {
-		printf("Error: can't load library.");
-		return 1;
-	}
-
-	// try to make another screenshot
-	make_screenshot("Screenshot_2.bmp");
-
-	// unload hook library
-	FreeLibrary(hDll);
-	return 0;
-}
-
-void make_screenshot(char* filename) {
 	// get the device context of the screen
 	HDC hScreenDC = CreateDC("DISPLAY", NULL, NULL, NULL);
 	// and a device context to put it in
@@ -43,11 +27,13 @@ void make_screenshot(char* filename) {
 	hBitmap = SelectObject(hMemoryDC, hOldBitmap);
 
 	// save to file
-	save_screenshot(hBitmap, create_bitmap_info(hBitmap), hMemoryDC, filename);
+	save_screenshot(hBitmap, create_bitmap_info(hBitmap), hMemoryDC, "Screenshot.bmp");
 
 	// clean up
 	DeleteDC(hMemoryDC);
 	DeleteDC(hScreenDC);
+
+	return 0;
 }
 
 PBITMAPINFO create_bitmap_info(HBITMAP hBmp) {
@@ -191,3 +177,7 @@ void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, char* filename) {
 	// Free memory.
 	GlobalFree((HGLOBAL)lpBits);
 }
+
+#ifdef __cplusplus
+}
+#endif
