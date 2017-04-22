@@ -33,6 +33,7 @@ InjectStruct inject;
 #define NOP				0x90
 #define CALL_DWORD_PTR	0x15FF
 
+DWORD rebasePtr(PVOID ptr);
 BOOL injectFunct(DWORD dwProcId);
 
 int main(int argc, char** argv[]) {
@@ -40,7 +41,10 @@ int main(int argc, char** argv[]) {
 	STARTUPINFO startupinfo;
 	PROCESS_INFORMATION procinfo;
 
+	// fill struct with zeros
 	memset(&startupinfo, 0, sizeof(startupinfo));
+
+	// start paused process
 	CreateProcessA(
 			"screenshot.exe",
 			NULL,
@@ -52,13 +56,15 @@ int main(int argc, char** argv[]) {
 			NULL,
 			&startupinfo,
 			&procinfo);
-	
+
+	// inject code
 	injectFunct(procinfo.dwProcessId);
-	
+
+	// resume process
 	ResumeThread(procinfo.hThread);
+
 	CloseHandle(procinfo.hThread);
 	CloseHandle(procinfo.hProcess);
-
 	return 0;
 }
 
@@ -100,6 +106,7 @@ BOOL injectFunct(DWORD dwProcId) {
 			if (hKernl) {
 				// fill struct with zeros
 				memset(&inject, 0, sizeof(inject));
+
 				// allocate memory in target process
 				PVOID mem = VirtualAllocEx(
 						hProc,
