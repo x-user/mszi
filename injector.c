@@ -1,4 +1,4 @@
-#include <stdlib.h>
+#include <stdio.h>
 #include <windows.h>
 
 #ifdef __cplusplus
@@ -38,17 +38,23 @@ InjectStruct inject;
 DWORD rebasePtr(PVOID ptr);
 BOOL injectFunct(DWORD dwProcId);
 
-int main(int argc, char** argv[]) {
+int main(int argc, char* argv[]) {
+
+	if (2 != argc) {
+		printf("Usage: %s filename\nWhere\n", argv[0]);
+		printf("\tfilename\tpath to target programm executable.\n");
+		return 2;
+	}
 
 	STARTUPINFO startupinfo;
 	PROCESS_INFORMATION procinfo;
 
-	// fill struct with zeros
+	// init structure with zeros
 	memset(&startupinfo, 0, sizeof(startupinfo));
 
-	// create paused process
-	CreateProcessA(
-			"screenshot.exe",
+	printf("Starting %s in paused state.. ", argv[1]);
+	if (!CreateProcessA(
+			argv[1],
 			NULL,
 			NULL,
 			NULL,
@@ -57,18 +63,27 @@ int main(int argc, char** argv[]) {
 			NULL,
 			NULL,
 			&startupinfo,
-			&procinfo);
+			&procinfo))
+	{
+		printf("fail.");
+		return 1;
+	} else {
+		printf("success.\nInjecting hook.dll in %s process.. ", argv[1]);
+		if (!injectFunct(procinfo.dwProcessId))
+			printf("fail.\n");
+		else
+			printf("success.\n");
 
-	// inject code
-	injectFunct(procinfo.dwProcessId);
+		printf("Resuming %s process main thread.. ", argv[1]);
+		if (-1 == ResumeThread(procinfo.hThread))
+			printf("fail.\n");
+		else
+			printf("success.\n");
 
-	// resume process
-	ResumeThread(procinfo.hThread);
-
-	CloseHandle(procinfo.hThread);
-	CloseHandle(procinfo.hProcess);
-	return 0;
-}
+		CloseHandle(procinfo.hThread);
+		CloseHandle(procinfo.hProcess);
+		return 0;
+}	}
 
 /**
  * Get rebased pointer to struct member.
@@ -135,7 +150,7 @@ BOOL injectFunct(DWORD dwProcId) {
 					inject.cmd4 = CALL_DWORD_PTR; // 0x15FF                   //
 					inject.cmd4ar = rebasePtr(&(inject.pExitThread));         //
 					// ---------------------------------------[ data block ]- //
-					// function pointers -------------------------------------//
+					// function pointers ------------------------------------ //
 					inject.pExitThread =                                      //
 						GetProcAddress(hKernl, "ExitThread");                 //
 					inject.pLoadLibraryA =                                    //
@@ -178,7 +193,7 @@ BOOL injectFunct(DWORD dwProcId) {
 
 			CloseHandle(hProc);
 	}	}
-	
+
 	free(path);
 	return result;
 }

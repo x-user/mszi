@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 PBITMAPINFO create_bitmap_info(HBITMAP hBmp);
-void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, char* filename);
+void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, LPSTR filename);
 
 INT APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmdLine, INT nCmdShow) {
 	// get the device context of the screen
@@ -98,7 +98,7 @@ PBITMAPINFO create_bitmap_info(HBITMAP hBmp) {
 	return pbmi;
 }
 
-void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, char* filename) {
+void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, LPSTR filename) {
 	HANDLE hf;                  // file handle
 	BITMAPFILEHEADER hdr;       // bitmap file-header
 	PBITMAPINFOHEADER pbih;     // bitmap info-header
@@ -123,7 +123,7 @@ void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, char* filename) {
 		exit(1);
 	}
 
-	hf = CreateFile(filename,
+	hf = CreateFileA(filename,
 			GENERIC_READ | GENERIC_WRITE,
 			(DWORD) 0,
 			NULL,

@@ -59,8 +59,9 @@ BOOL WINAPI fake_BitBlt(HDC hdcDest,
 	if (SRCCOPY == dwRop) {
 		return TRUE;
 	} else {
-		// restore original code
+		// get write access
 		VirtualProtect((LPVOID)BitBlt_addr, SIZE, newProtect, NULL);
+		// restore original code
 		memcpy(BitBlt_addr, oldBytes, SIZE);
 
 		// call original BitBlt function
@@ -68,6 +69,7 @@ BOOL WINAPI fake_BitBlt(HDC hdcDest,
 
 		// restore hook
 		memcpy(BitBlt_addr, JMP, SIZE);
+		// restore protection
 		VirtualProtect((LPVOID)BitBlt_addr, SIZE, oldProtect, NULL);
 
 		return retVal;
