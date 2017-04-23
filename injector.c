@@ -6,6 +6,9 @@ extern "C" {
 #endif
 
 #pragma pack(1)
+/**
+ * structure for code injection
+ */
 typedef struct tInjectStruct {
 	// code
 	BYTE cmd0;
@@ -18,13 +21,12 @@ typedef struct tInjectStruct {
 	WORD cmd4;
 	DWORD cmd4ar;
 	// data
-	LPVOID pLoadLibraryA;
 	LPVOID pExitThread;
+	LPVOID pLoadLibraryA;
 	CHAR LibraryPath[MAX_PATH];
 } InjectStruct, *pInjectStruct;
 #pragma pack()
 
-// variables
 DWORD codeBase;
 InjectStruct inject;
 
@@ -79,7 +81,7 @@ DWORD rebasePtr(PVOID ptr) {
 }
 
 /**
- * Inject library in target process.
+ * Inject code in target process.
  * @param dwProcId The identifier of the target process.
  * @return TRUE if success, and FALSE otherwise.
  */
@@ -90,7 +92,7 @@ BOOL injectFunct(DWORD dwProcId) {
 
 	if (GetFullPathName("hook.dll", MAX_PATH, path, NULL)) {
 
-		// open target process
+		// open target process with write memory access
 		HANDLE hProc = OpenProcess(
 				PROCESS_CREATE_THREAD |
 				PROCESS_VM_OPERATION |
@@ -104,9 +106,6 @@ BOOL injectFunct(DWORD dwProcId) {
 			HANDLE hKernl = GetModuleHandle("kernel32.dll");
 
 			if (hKernl) {
-				// fill struct with zeros
-				memset(&inject, 0, sizeof(inject));
-
 				// allocate memory in target process
 				PVOID mem = VirtualAllocEx(
 						hProc,
@@ -117,33 +116,33 @@ BOOL injectFunct(DWORD dwProcId) {
 						PAGE_EXECUTE_READWRITE);
 
 				if (mem) {
-					// get memory block address
+					// store allocated memory block address
 					codeBase = (DWORD) mem;
 
-					// ==================================================== //
-					// fill struct for code injection                       //
-					// ==================================================== //
-					// fill code block ------------------------------------ //
-					inject.cmd0 = NOP;
-					// LoadLibraryA(LibraryPath);
-					inject.cmd1 = PUSH;
-					inject.cmd1ar = rebasePtr(&(inject.LibraryPath));
-					inject.cmd2 = CALL_DWORD_PTR;
-					inject.cmd2ar = rebasePtr(&(inject.pLoadLibraryA));
-					// ExitThread(0);
-					inject.cmd3 = PUSH;
-					inject.cmd3ar = 0;
-					inject.cmd4 = CALL_DWORD_PTR;
-					inject.cmd4ar = rebasePtr(&(inject.pExitThread));
-					// fill data block ------------------------------------ //
-					// strings
-					strncpy(inject.LibraryPath, path, MAX_PATH);
-					// function pointers
-					inject.pExitThread =
-						GetProcAddress(hKernl, "ExitThread");
-					inject.pLoadLibraryA =
-						GetProcAddress(hKernl, "LoadLibraryA");
-					// end ================================================ //
+					// ====================================================== //
+					// fill structure                                         //
+					// ====================================================== //
+					// ---------------------------------------[ code block ]- //
+					inject.cmd0 = NOP;            // 0x90                     //
+					// LoadLibraryA(LibraryPath); --------------------------- //
+					inject.cmd1 = PUSH;           // 0x68                     //
+					inject.cmd1ar = rebasePtr(&(inject.LibraryPath));         //
+					inject.cmd2 = CALL_DWORD_PTR; // 0x15FF                   //
+					inject.cmd2ar = rebasePtr(&(inject.pLoadLibraryA));       //
+					// ExitThread(0); --------------------------------------- //
+					inject.cmd3 = PUSH;           // 0x68                     //
+					inject.cmd3ar = 0;            // 0x00                     //
+					inject.cmd4 = CALL_DWORD_PTR; // 0x15FF                   //
+					inject.cmd4ar = rebasePtr(&(inject.pExitThread));         //
+					// ---------------------------------------[ data block ]- //
+					// function pointers -------------------------------------//
+					inject.pExitThread =                                      //
+						GetProcAddress(hKernl, "ExitThread");                 //
+					inject.pLoadLibraryA =                                    //
+						GetProcAddress(hKernl, "LoadLibraryA");               //
+					// strings ---------------------------------------------- //
+					strncpy(inject.LibraryPath, path, MAX_PATH);              //
+					// ====================================================== //
 
 					// perform injection
 					if (WriteProcessMemory(
