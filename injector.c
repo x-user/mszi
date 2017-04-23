@@ -1,42 +1,7 @@
-#include <stdio.h>
-#include <windows.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#pragma pack(1)
-/**
- * structure for code injection
- */
-typedef struct tInjectStruct {
-	// code
-	BYTE cmd0;
-	BYTE cmd1;
-	DWORD cmd1ar;
-	WORD cmd2;
-	DWORD cmd2ar;
-	BYTE cmd3;
-	DWORD cmd3ar;
-	WORD cmd4;
-	DWORD cmd4ar;
-	// data
-	LPVOID pExitThread;
-	LPVOID pLoadLibraryA;
-	CHAR LibraryPath[MAX_PATH];
-} InjectStruct, *pInjectStruct;
-#pragma pack()
+#include "injector.h"
 
 DWORD codeBase;
 InjectStruct inject;
-
-// ASM commands.
-#define PUSH			0x68
-#define NOP				0x90
-#define CALL_DWORD_PTR	0x15FF
-
-DWORD rebasePtr(PVOID ptr);
-BOOL injectFunct(DWORD dwProcId);
 
 int main(int argc, char* argv[]) {
 
@@ -85,21 +50,11 @@ int main(int argc, char* argv[]) {
 		return 0;
 }	}
 
-/**
- * Get rebased pointer to struct member.
- * @param ptr Pointer to struct member.
- * @return Pointer to struct member in remote process.
- */
 DWORD rebasePtr(PVOID ptr) {
 
 	return codeBase + (DWORD) ptr - (DWORD) &inject;
 }
 
-/**
- * Inject code in target process.
- * @param dwProcId The identifier of the target process.
- * @return TRUE if success, and FALSE otherwise.
- */
 BOOL injectFunct(DWORD dwProcId) {
 
 	BOOL result = FALSE;
@@ -197,7 +152,3 @@ BOOL injectFunct(DWORD dwProcId) {
 	free(path);
 	return result;
 }
-
-#ifdef __cplusplus
-}
-#endif

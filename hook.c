@@ -1,28 +1,30 @@
-#include <stdio.h>
-#include <windows.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#define SIZE 6
-
-BOOL WINAPI fake_BitBlt(HDC, int, int, int, int, HDC, int, int, DWORD);
-typedef BOOL (WINAPI * pBitBlt)(HDC, int, int, int, int, HDC, int, int, DWORD);
+#include "hook.h"
 
 BYTE JMP[SIZE] = {0};
 BYTE oldBytes[SIZE] = {0};
 pBitBlt BitBlt_addr = NULL;
 DWORD oldProtect, newProtect = PAGE_EXECUTE_READWRITE;
 
-/*
- * get needed information and install hook first time
- */
+BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved) {
+
+	if (dwReason == DLL_PROCESS_ATTACH) {
+		// store original BitBlt address
+		BitBlt_addr = (pBitBlt) GetProcAddress(GetModuleHandle("gdi32.dll"), "BitBlt");
+
+		if (NULL != BitBlt_addr)
+			install_hook();
+	} else if (dwReason == DLL_PROCESS_DETACH) {
+		// remove hook on library unload
+		memcpy(BitBlt_addr, oldBytes, SIZE);
+	}
+
+	return TRUE;
+}
+
 void install_hook() {
 
 	BYTE tempJMP[SIZE] = { 0xE9, 0x90, 0x90, 0x90, 0x90, 0xC3 };
 	// copy trampoline code
-	// trampoline = { JMP NOP NOP NOP NOP RET }
 	memcpy(JMP, tempJMP, SIZE);
 	// calculate address
 	DWORD JMPSize = ((DWORD)fake_BitBlt - (DWORD)BitBlt_addr - 5);
@@ -34,7 +36,6 @@ void install_hook() {
 	// copy original bytes
 	memcpy(oldBytes, BitBlt_addr, SIZE);
 	// replace nops in trampoline with address
-	// trampoline = { JMP 0xXX 0xXX 0xXX 0xXX RET }
 	memcpy(&JMP[1], &JMPSize, 4);
 	// splice BitBlt function
 	memcpy(BitBlt_addr, JMP, SIZE);
@@ -43,9 +44,6 @@ void install_hook() {
 	VirtualProtect((LPVOID)BitBlt_addr, SIZE, oldProtect, NULL);
 }
 
-/**
- * BitBlt hook function
- */
 BOOL WINAPI fake_BitBlt(HDC hdcDest,
 		int nXDest,
 		int nYDest,
@@ -74,23 +72,3 @@ BOOL WINAPI fake_BitBlt(HDC hdcDest,
 
 		return retVal;
 }	}
-
-BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved) {
-
-	if (dwReason == DLL_PROCESS_ATTACH) {
-		// store original BitBlt address
-		BitBlt_addr = (pBitBlt) GetProcAddress(GetModuleHandle("gdi32.dll"), "BitBlt");
-
-		if (NULL != BitBlt_addr)
-			install_hook();
-	} else if (dwReason == DLL_PROCESS_DETACH) {
-		// remove hook on library unload
-		memcpy(BitBlt_addr, oldBytes, SIZE);
-	}
-
-	return TRUE;
-}
-
-#ifdef __cplusplus
-}
-#endif
