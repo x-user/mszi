@@ -3,7 +3,7 @@ RC = i686-w64-mingw32-windres
 
 CFLAGS = -O1 -march=i686 -mtune=generic -gdwarf-2 -gstrict-dwarf -fno-optimize-sibling-calls -fno-omit-frame-pointer -fno-inline -fno-unit-at-a-time -pipe
 
-all: injector.exe hook.dll screenshot.exe
+all: injector.exe hook.dll hook_new.dll screenshot.exe
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@

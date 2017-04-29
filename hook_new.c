@@ -15,26 +15,14 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved) {
 	case DLL_PROCESS_DETACH:
 		// remove hook
 		if (BitBlt_base) {
-			printf("Attempting to uninstall BitBlt hook..");
-			if (!HotUnpatch(BitBlt_base) {
-				printLastError();
-			}
-			else {
-				printf("success\n");
-			}
+			HotUnpatch(BitBlt_base);
 		}
 
 		break;
 	case DLL_PROCESS_ATTACH:
 		// install hook
 		if (BitBlt_base) {
-			printf("Attempting to install BitBlt hook..");
-			if (!HotPatch(BitBlt_base, &fake_BitBlt, (void**) &origBitBlt)) {
-				printLastError();
-			}
-			else {
-				printf("success\n");
-			}
+			HotPatch(BitBlt_base, &fake_BitBlt, (void**) &origBitBlt);
 		}
 
 		break;
@@ -63,7 +51,6 @@ BOOL WINAPI fake_BitBlt(HDC hdcDest,
 }
 
 BOOL HotPatch(void * procBase, void * hookBase, void ** ppOrigFn) {
-	DWORD oldProtect;
 	BOOL result = FALSE;
 
 	// get patchBase address
@@ -79,6 +66,8 @@ BOOL HotPatch(void * procBase, void * hookBase, void ** ppOrigFn) {
 		SetLastError(ERROR_INVALID_FUNCTION);
 	}
 	else {
+		DWORD oldProtect;
+
 		// get write access
 		if (VirtualProtect(patchBase, 7,
 						   PAGE_EXECUTE_WRITECOPY, &oldProtect))
@@ -105,7 +94,6 @@ BOOL HotPatch(void * procBase, void * hookBase, void ** ppOrigFn) {
 }
 
 BOOL HotUnpatch(void * procBase) {
-	DWORD oldProtect;
 	BOOL result = FALSE;
 
 	if (JMP_BACK != *((WORD*) procBase)) {
@@ -113,6 +101,7 @@ BOOL HotUnpatch(void * procBase) {
 		SetLastError(ERROR_INVALID_FUNCTION);
 	}
 	else {
+		DWORD oldProtect;
 		// get patchBase address
 		BYTE * patchBase = (BYTE*) procBase - 5;
 

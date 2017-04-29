@@ -35,7 +35,7 @@ int __cdecl main() {
 	}
 	else {
 		wprintf(L"success\nInjecting %s in %s.. ", argv[2], argv[1]);
-		if (!injectFunct(argv[1])) {
+		if (!injectFunct(argv[2])) {
 			printLastError();
 		}
 		else {

@@ -4,7 +4,7 @@
 PBITMAPINFO create_bitmap_info(HBITMAP hBmp);
 void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, LPSTR filename);
 
-INT APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmdLine, INT nCmdShow) {
+int __cdecl main() {
 	// get the device context of the screen
 	HDC hScreenDC = CreateDC("DISPLAY", NULL, NULL, NULL);
 	// and a device context to put it in
@@ -23,7 +23,7 @@ INT APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmdLine, INT nCmd
 	hBitmap = SelectObject(hMemoryDC, hOldBitmap);
 
 	// save to file
-	save_screenshot(hBitmap, create_bitmap_info(hBitmap), hMemoryDC, "Screenshot.bmp");
+	save_screenshot(hBitmap, create_bitmap_info(hBitmap), hMemoryDC, "screenshot.bmp");
 
 	// clean up
 	DeleteDC(hMemoryDC);

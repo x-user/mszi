@@ -55,7 +55,8 @@ BOOL WINAPI fake_BitBlt(HDC hdcDest,
 						DWORD dwRop)
 {
 	if (SRCCOPY == dwRop) {
-		return TRUE;
+		SetLastError(ERROR_ACCESS_DENIED);
+		return FALSE;
 	}
 	else {
 		// get write access
