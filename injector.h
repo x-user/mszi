@@ -1,8 +1,7 @@
 #ifndef __INJECTOR_H__
 #define __INJECTOR_H__
 
-#include <stdio.h>
-#include <windows.h>
+#include "error.h"
 
 // ASM commands.
 #define PUSH			0x68
@@ -26,23 +25,19 @@ typedef struct tInjectStruct {
 	DWORD cmd4ar;
 	// data
 	LPVOID pExitThread;
-	LPVOID pLoadLibraryA;
-	CHAR LibraryPath[MAX_PATH];
+	LPVOID pLoadLibraryW;
+	WCHAR LibraryPath[MAX_PATH];
 } InjectStruct, *pInjectStruct;
 #pragma pack()
 
 /**
- * Get rebased pointer to struct member.
- * @param ptr Pointer to struct member.
- * @return Pointer to struct member in remote process.
+ * Inject code in target process.
  */
-DWORD rebasePtr(PVOID ptr);
+BOOL injectFunct(LPWSTR lpHookDll);
 
 /**
- * Inject code in target process.
- * @param dwProcId The identifier of the target process.
- * @return TRUE if success, and FALSE otherwise.
+ * Get rebased pointer to struct member.
  */
-BOOL injectFunct(DWORD dwProcId);
+DWORD rebasePtr(PVOID ptr);
 
 #endif // __INJECTOR_H__

@@ -1,10 +1,6 @@
 #include <stdio.h>
 #include <windows.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 PBITMAPINFO create_bitmap_info(HBITMAP hBmp);
 void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, LPSTR filename);
 
@@ -64,14 +60,16 @@ PBITMAPINFO create_bitmap_info(HBITMAP hBmp) {
 	// Allocate memory for the BITMAPINFO structure. (This structure
 	// contains a BITMAPINFOHEADER structure and an array of RGBQUAD
 	// data structures.)
-	if (cClrBits < 24)
+	if (cClrBits < 24) {
 		pbmi = (PBITMAPINFO) LocalAlloc(LPTR,
-				sizeof(BITMAPINFOHEADER) +
-				sizeof(RGBQUAD) * (1<< cClrBits));
+										sizeof(BITMAPINFOHEADER) +
+										sizeof(RGBQUAD) * (1<< cClrBits));
+	}
 	// There is no RGBQUAD array for these formats: 24-bit-per-pixel or 32-bit-per-pixel
-	else
+	else {
 		pbmi = (PBITMAPINFO) LocalAlloc(LPTR,
-				sizeof(BITMAPINFOHEADER));
+										sizeof(BITMAPINFOHEADER));
+	}
 
 	// Initialize the fields in the BITMAPINFO structure.
 	pbmi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -79,8 +77,9 @@ PBITMAPINFO create_bitmap_info(HBITMAP hBmp) {
 	pbmi->bmiHeader.biHeight = bmp.bmHeight;
 	pbmi->bmiHeader.biPlanes = bmp.bmPlanes;
 	pbmi->bmiHeader.biBitCount = bmp.bmBitsPixel;
-	if (cClrBits < 24)
+	if (cClrBits < 24) {
 		pbmi->bmiHeader.biClrUsed = (1 << cClrBits);
+	}
 
 	// If the bitmap is not compressed, set the BI_RGB flag. <Paste>
 	pbmi->bmiHeader.biCompression = BI_RGB;
@@ -89,7 +88,7 @@ PBITMAPINFO create_bitmap_info(HBITMAP hBmp) {
 	// indices and store the result in biSizeImage.
 	// The width must be DWORD aligned unless the bitmap is RLE
 	// compressed.
-	pbmi->bmiHeader.biSizeImage = ((pbmi->bmiHeader.biWidth * cClrBits +31) & ~31) /8
+	pbmi->bmiHeader.biSizeImage = ((pbmi->bmiHeader.biWidth * cClrBits +31) & ~31) / 8
 		* pbmi->bmiHeader.biHeight;
 
 	// Set biClrImportant to 0, indicating that all of the
@@ -98,7 +97,8 @@ PBITMAPINFO create_bitmap_info(HBITMAP hBmp) {
 	return pbmi;
 }
 
-void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, LPSTR filename) {
+void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, LPSTR filename)
+{
 	HANDLE hf;                  // file handle
 	BITMAPFILEHEADER hdr;       // bitmap file-header
 	PBITMAPINFOHEADER pbih;     // bitmap info-header
@@ -117,19 +117,24 @@ void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, LPSTR filename) {
 
 	// Retrieve the color table (RGBQUAD array) and the bit
 	// (array of palette indices) from the DIB.
-	if (!GetDIBits(hDC, hBmp, 0, (WORD) pbih->biHeight, lpBits, pbi,
-				DIB_RGB_COLORS))
+	if (!GetDIBits(hDC,
+				   hBmp,
+				   0,
+				   (WORD) pbih->biHeight,
+				   lpBits,
+				   pbi,
+				   DIB_RGB_COLORS))
 	{
 		exit(1);
 	}
 
 	hf = CreateFileA(filename,
-			GENERIC_READ | GENERIC_WRITE,
-			(DWORD) 0,
-			NULL,
-			CREATE_ALWAYS,
-			FILE_ATTRIBUTE_NORMAL,
-			(HANDLE) NULL);
+					 GENERIC_READ | GENERIC_WRITE,
+					 (DWORD) 0,
+					 NULL,
+					 CREATE_ALWAYS,
+					 FILE_ATTRIBUTE_NORMAL,
+					 (HANDLE) NULL);
 
 	if (INVALID_HANDLE_VALUE == hf) {
 		exit(1);
@@ -138,8 +143,9 @@ void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, LPSTR filename) {
 	hdr.bfType = 0x4d42;        // 0x42 = "B" 0x4d = "M"
 	// Compute the size of the entire file.
 	hdr.bfSize = (DWORD) (sizeof(BITMAPFILEHEADER) +
-			pbih->biSize + pbih->biClrUsed
-			* sizeof(RGBQUAD) + pbih->biSizeImage);
+				 pbih->biSize + pbih->biClrUsed
+				 * sizeof(RGBQUAD) + pbih->biSizeImage);
+
 	hdr.bfReserved1 = 0;
 	hdr.bfReserved2 = 0;
 
@@ -148,16 +154,21 @@ void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, LPSTR filename) {
 		pbih->biSize + pbih->biClrUsed * sizeof (RGBQUAD);
 
 	// Copy the BITMAPFILEHEADER into the .BMP file.
-	if (!WriteFile(hf, (LPVOID) &hdr, sizeof(BITMAPFILEHEADER),
-				(LPDWORD) &dwTmp,  NULL))
+	if (!WriteFile(hf,
+				   (LPVOID) &hdr,
+				   sizeof(BITMAPFILEHEADER),
+				   (LPDWORD) &dwTmp, 
+				   NULL))
 	{
 		exit(1);
 	}
 
 	// Copy the BITMAPINFOHEADER and RGBQUAD array into the file.
-	if (!WriteFile(hf, (LPVOID) pbih, sizeof(BITMAPINFOHEADER)
-				+ pbih->biClrUsed * sizeof (RGBQUAD),
-				(LPDWORD) &dwTmp, ( NULL)))
+	if (!WriteFile(hf,
+				   (LPVOID) pbih, sizeof(BITMAPINFOHEADER) +
+				   pbih->biClrUsed * sizeof (RGBQUAD),
+				   (LPDWORD) &dwTmp,
+				   NULL))
 	{
 		exit(1);
 	}
@@ -165,7 +176,12 @@ void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, LPSTR filename) {
 	// Copy the array of color indices into the .BMP file.
 	dwTotal = cb = pbih->biSizeImage;
 	hp = lpBits;
-	if (!WriteFile(hf, (LPSTR) hp, (int) cb, (LPDWORD) &dwTmp,NULL)) {
+	if (!WriteFile(hf,
+				   (LPSTR) hp,
+				   (int) cb,
+				   (LPDWORD) &dwTmp,
+				   NULL))
+	{
 		exit(1);
 	}
 
@@ -177,7 +193,3 @@ void save_screenshot(HBITMAP hBmp, PBITMAPINFO pbi, HDC hDC, LPSTR filename) {
 	// Free memory.
 	GlobalFree((HGLOBAL)lpBits);
 }
-
-#ifdef __cplusplus
-}
-#endif

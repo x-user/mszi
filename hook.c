@@ -6,14 +6,15 @@ pBitBlt BitBlt_addr = NULL;
 DWORD oldProtect, newProtect = PAGE_EXECUTE_READWRITE;
 
 BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved) {
-
 	if (dwReason == DLL_PROCESS_ATTACH) {
 		// store original BitBlt address
-		BitBlt_addr = (pBitBlt) GetProcAddress(GetModuleHandle("gdi32.dll"), "BitBlt");
+		BitBlt_addr = GetProcAddress(GetModuleHandle("gdi32.dll"), "BitBlt");
 
-		if (NULL != BitBlt_addr)
+		if (NULL != BitBlt_addr) {
 			install_hook();
-	} else if (dwReason == DLL_PROCESS_DETACH) {
+		}
+	}
+	else if (dwReason == DLL_PROCESS_DETACH) {
 		// remove hook on library unload
 		memcpy(BitBlt_addr, oldBytes, SIZE);
 	}
@@ -22,7 +23,6 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved) {
 }
 
 void install_hook() {
-
 	BYTE tempJMP[SIZE] = { 0xE9, 0x90, 0x90, 0x90, 0x90, 0xC3 };
 	// copy trampoline code
 	memcpy(JMP, tempJMP, SIZE);
@@ -31,7 +31,7 @@ void install_hook() {
 
 	// get write access
 	VirtualProtect((LPVOID)BitBlt_addr, SIZE,
-			PAGE_EXECUTE_READWRITE, &oldProtect);
+				   PAGE_EXECUTE_READWRITE, &oldProtect);
 
 	// copy original bytes
 	memcpy(oldBytes, BitBlt_addr, SIZE);
@@ -45,18 +45,19 @@ void install_hook() {
 }
 
 BOOL WINAPI fake_BitBlt(HDC hdcDest,
-		int nXDest,
-		int nYDest,
-		int nWidth,
-		int nHeight,
-		HDC hdcSrc,
-		int nXSrc,
-		int nYSrc,
-		DWORD dwRop)
+						int nXDest,
+						int nYDest,
+						int nWidth,
+						int nHeight,
+						HDC hdcSrc,
+						int nXSrc,
+						int nYSrc,
+						DWORD dwRop)
 {
 	if (SRCCOPY == dwRop) {
 		return TRUE;
-	} else {
+	}
+	else {
 		// get write access
 		VirtualProtect((LPVOID)BitBlt_addr, SIZE, newProtect, NULL);
 		// restore original code
@@ -71,4 +72,5 @@ BOOL WINAPI fake_BitBlt(HDC hdcDest,
 		VirtualProtect((LPVOID)BitBlt_addr, SIZE, oldProtect, NULL);
 
 		return retVal;
-}	}
+	}
+}

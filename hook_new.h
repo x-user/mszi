@@ -1,10 +1,11 @@
-#ifndef __HOOK_H__
-#define __HOOK_H__
+#ifndef __HOOK_NEW_H__
+#define __HOOK_NEW_H__
 
-#include <stdio.h>
-#include <windows.h>
+#include "error.h"
 
-#define SIZE 6
+#define JMP			0xE9
+#define JMP_BACK	0xF9EB
+#define LONG_NOP	0xFF8B
 
 /**
  * BitBlt hook
@@ -21,13 +22,18 @@ BOOL WINAPI fake_BitBlt(HDC hdcDest,
 );
 
 /**
- * 1st hook install
+ * Install hook
  */
-void install_hook();
+BOOL HotPatch(void * procBase, void * hookBase, void ** ppOrigFn);
+
+/**
+ * Remove hook
+ */
+BOOL HotUnpatch(void * procBase);
 
 /**
  * BitBlt pointer typedef
  */
 typedef BOOL (WINAPI * pBitBlt)(HDC,int,int,int,int,HDC,int,int,DWORD);
 
-#endif // __HOOK_H__
+#endif // __HOOK_NEW_H__

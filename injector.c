@@ -2,153 +2,154 @@
 
 DWORD codeBase;
 InjectStruct inject;
+PROCESS_INFORMATION lpProcessInformation;
 
-int main(int argc, char* argv[]) {
+int __cdecl main() {
+	BOOL result = FALSE;
 
-	if (2 != argc) {
-		printf("Usage: %s filename\nWhere\n", argv[0]);
-		printf("\tfilename\tpath to target programm executable.\n");
-		return 2;
+	int argc;
+	LPWSTR *argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+	if (argc < 3) {
+		wprintf(L"Usage: %s filename hook\n", argv[0]);
+		printf("where:\n");
+		printf("    filename    path to target executable\n");
+		printf("    hook        path to library for injection\n");
+		return 1;
 	}
 
-	STARTUPINFO startupinfo;
-	PROCESS_INFORMATION procinfo;
-
-	// init structure with zeros
-	memset(&startupinfo, 0, sizeof(startupinfo));
-
-	printf("Starting %s in paused state.. ", argv[1]);
-	if (!CreateProcessA(
-			argv[1],
-			NULL,
-			NULL,
-			NULL,
-			FALSE,
-			CREATE_SUSPENDED,
-			NULL,
-			NULL,
-			&startupinfo,
-			&procinfo))
+	STARTUPINFOW lpStartupInfo = {0};
+	
+	wprintf(L"Launching %s in paused state.. ", argv[1]);
+	if (!CreateProcessW(argv[1],
+						NULL,
+						NULL,
+						NULL,
+						FALSE,
+						CREATE_SUSPENDED,
+						NULL,
+						NULL,
+						&lpStartupInfo,
+						&lpProcessInformation))
 	{
-		printf("fail.");
-		return 1;
-	} else {
-		printf("success.\nInjecting hook.dll in %s process.. ", argv[1]);
-		if (!injectFunct(procinfo.dwProcessId))
-			printf("fail.\n");
-		else
-			printf("success.\n");
+		printLastError();
+	}
+	else {
+		wprintf(L"success\nInjecting %s in %s.. ", argv[2], argv[1]);
+		if (!injectFunct(argv[1])) {
+			printLastError();
+		}
+		else {
+			wprintf(L"success\nResuming main thread of %s.. ", argv[1]);
+			if (-1 != ResumeThread(lpProcessInformation.hThread)) {
+				result = TRUE;
+				printf("success\n");
+			}
+			else {
+				printLastError();
+				wprintf(L"Attempting to kill %s.. ", argv[1]);
+				if (!TerminateProcess(lpProcessInformation.hProcess, 1)) {
+					printLastError();
+				}
+				else {
+					printf("success\n");
+				}
+			}
+		}
 
-		printf("Resuming %s process main thread.. ", argv[1]);
-		if (-1 == ResumeThread(procinfo.hThread))
-			printf("fail.\n");
-		else
-			printf("success.\n");
-
-		CloseHandle(procinfo.hThread);
-		CloseHandle(procinfo.hProcess);
-		return 0;
-}	}
-
-DWORD rebasePtr(PVOID ptr) {
-
-	return codeBase + (DWORD) ptr - (DWORD) &inject;
+		// close handles
+		CloseHandle(lpProcessInformation.hThread);
+		CloseHandle(lpProcessInformation.hProcess);
+	}
+	
+	return !result;
 }
 
-BOOL injectFunct(DWORD dwProcId) {
-
+BOOL injectFunct(LPWSTR lpHookDll) {
 	BOOL result = FALSE;
-	char *path = (char*) malloc(MAX_PATH);
+	WCHAR lpFullPath[MAX_PATH];
 
-	if (GetFullPathName("hook.dll", MAX_PATH, path, NULL)) {
+	// get full path to hook.dll
+	if (GetFullPathNameW(lpHookDll, MAX_PATH, lpFullPath, NULL)) {
+		// get handle of kernel32.dll
+		HANDLE hKernl = GetModuleHandleA("kernel32.dll");
 
-		// open target process with write memory access
-		HANDLE hProc = OpenProcess(
-				PROCESS_CREATE_THREAD |
-				PROCESS_VM_OPERATION |
-				PROCESS_VM_READ | PROCESS_VM_WRITE |
-				PROCESS_QUERY_INFORMATION,
-				FALSE,
-				dwProcId);
+		if (hKernl) {
+			// allocate memory in target process
+			PVOID mem = VirtualAllocEx(lpProcessInformation.hProcess,
+									   NULL,
+									   sizeof(inject),
+									   MEM_TOP_DOWN |
+									   MEM_COMMIT,
+									   PAGE_EXECUTE_READWRITE);
 
-		if (hProc) {
-			// get handle of kernel32.dll
-			HANDLE hKernl = GetModuleHandle("kernel32.dll");
+			// memory successfully allocated
+			if (mem) {
+				// store allocated memory block address
+				codeBase = (DWORD) mem;
 
-			if (hKernl) {
-				// allocate memory in target process
-				PVOID mem = VirtualAllocEx(
-						hProc,
-						NULL,
-						sizeof(inject),
-						MEM_TOP_DOWN |
-						MEM_COMMIT,
-						PAGE_EXECUTE_READWRITE);
+				// ====================================================== //
+				// fill structure                                         //
+				// ====================================================== //
+				// ---------------------------------------[ code block ]- //
+				inject.cmd0 = NOP;            // 0x90                     //
+				// LoadLibraryA(LibraryPath); --------------------------- //
+				inject.cmd1 = PUSH;           // 0x68                     //
+				inject.cmd1ar = rebasePtr(&(inject.LibraryPath));         //
+				inject.cmd2 = CALL_DWORD_PTR; // 0x15FF                   //
+				inject.cmd2ar = rebasePtr(&(inject.pLoadLibraryW));       //
+				// ExitThread(0); --------------------------------------- //
+				inject.cmd3 = PUSH;           // 0x68                     //
+				inject.cmd3ar = 0;            // 0x00                     //
+				inject.cmd4 = CALL_DWORD_PTR; // 0x15FF                   //
+				inject.cmd4ar = rebasePtr(&(inject.pExitThread));         //
+				// ---------------------------------------[ data block ]- //
+				// function pointers ------------------------------------ //
+				inject.pExitThread =                                      //
+					GetProcAddress(hKernl, "ExitThread");                 //
+				inject.pLoadLibraryW =                                    //
+					GetProcAddress(hKernl, "LoadLibraryW");               //
+				// strings ---------------------------------------------- //
+				wcsncpy(inject.LibraryPath, lpFullPath, MAX_PATH);        //
+				// ====================================================== //
 
-				if (mem) {
-					// store allocated memory block address
-					codeBase = (DWORD) mem;
+				// perform injection
+				if (WriteProcessMemory(lpProcessInformation.hProcess,
+									   mem,
+									   &inject,
+									   (SIZE_T) sizeof(inject),
+									   NULL))
+				{
+					// start injected code in target process
+					HANDLE hThread = CreateRemoteThread(lpProcessInformation.hProcess,
+														NULL,
+														0,
+														(LPTHREAD_START_ROUTINE) mem,
+														NULL,
+														0,
+														NULL);
 
-					// ====================================================== //
-					// fill structure                                         //
-					// ====================================================== //
-					// ---------------------------------------[ code block ]- //
-					inject.cmd0 = NOP;            // 0x90                     //
-					// LoadLibraryA(LibraryPath); --------------------------- //
-					inject.cmd1 = PUSH;           // 0x68                     //
-					inject.cmd1ar = rebasePtr(&(inject.LibraryPath));         //
-					inject.cmd2 = CALL_DWORD_PTR; // 0x15FF                   //
-					inject.cmd2ar = rebasePtr(&(inject.pLoadLibraryA));       //
-					// ExitThread(0); --------------------------------------- //
-					inject.cmd3 = PUSH;           // 0x68                     //
-					inject.cmd3ar = 0;            // 0x00                     //
-					inject.cmd4 = CALL_DWORD_PTR; // 0x15FF                   //
-					inject.cmd4ar = rebasePtr(&(inject.pExitThread));         //
-					// ---------------------------------------[ data block ]- //
-					// function pointers ------------------------------------ //
-					inject.pExitThread =                                      //
-						GetProcAddress(hKernl, "ExitThread");                 //
-					inject.pLoadLibraryA =                                    //
-						GetProcAddress(hKernl, "LoadLibraryA");               //
-					// strings ---------------------------------------------- //
-					strncpy(inject.LibraryPath, path, MAX_PATH);              //
-					// ====================================================== //
-
-					// perform injection
-					if (WriteProcessMemory(
-							hProc,
-							mem,
-							&inject,
-							(SIZE_T) sizeof(inject),
-							NULL))
-					{
-						// start injected code in target process
-						HANDLE hThread = CreateRemoteThread(
-								hProc,
-								NULL,
-								0,
-								(LPTHREAD_START_ROUTINE) mem,
-								NULL,
-								0,
-								NULL);
-
-						if (hThread) {
-							// wait until remote thread finish it's work
-							WaitForSingleObject(hThread, INFINITE);
-
-							result = TRUE;
-							CloseHandle(hThread);
-					}	}
-
-					VirtualFreeEx(hProc, mem, 0, MEM_RELEASE);
+					if (hThread) {
+						// wait until remote thread finish it's work
+						WaitForSingleObject(hThread, INFINITE);
+						
+						result = TRUE;
+						// close remote thread handle
+						CloseHandle(hThread);
+					}
 				}
 
-				CloseHandle(hKernl);
+				// free allocated memory
+				VirtualFreeEx(lpProcessInformation.hProcess, mem, 0, MEM_RELEASE);
 			}
 
-			CloseHandle(hProc);
-	}	}
+			// close kernel32.dll module handle
+			CloseHandle(hKernl);
+		}
+	}
 
-	free(path);
 	return result;
+}
+
+DWORD rebasePtr(PVOID ptr) {
+	return codeBase + (DWORD) ptr - (DWORD) &inject;
 }
