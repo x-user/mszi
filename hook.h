@@ -23,7 +23,12 @@ BOOL WINAPI fake_BitBlt(HDC hdcDest,
 /**
  * 1st hook install
  */
-void install_hook();
+BOOL install_hook();
+
+/**
+ * final hook deletion
+ */
+BOOL uninstall_hook();
 
 /**
  * BitBlt pointer typedef

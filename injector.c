@@ -5,9 +5,10 @@ InjectStruct inject;
 PROCESS_INFORMATION lpProcessInformation;
 
 int __cdecl main() {
-	BOOL result = FALSE;
-
 	int argc;
+	BOOL result = FALSE;
+	STARTUPINFOW lpStartupInfo = {0};
+
 	LPWSTR *argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 	if (argc < 3) {
 		wprintf(L"Usage: %s filename hook\n", argv[0]);
@@ -17,8 +18,6 @@ int __cdecl main() {
 		return 1;
 	}
 
-	STARTUPINFOW lpStartupInfo = {0};
-	
 	wprintf(L"Launching %s in paused state.. ", argv[1]);
 	if (!CreateProcessW(argv[1],
 						NULL,
@@ -43,6 +42,9 @@ int __cdecl main() {
 			if (-1 != ResumeThread(lpProcessInformation.hThread)) {
 				result = TRUE;
 				printf("success\n");
+
+				// wait
+				WaitForSingleObject(lpProcessInformation.hThread, INFINITE);
 			}
 			else {
 				printLastError();
@@ -60,7 +62,7 @@ int __cdecl main() {
 		CloseHandle(lpProcessInformation.hThread);
 		CloseHandle(lpProcessInformation.hProcess);
 	}
-	
+
 	return !result;
 }
 

@@ -2,33 +2,35 @@
 
 pBitBlt origBitBlt = NULL;
 
-// hotpachable block patterns
-BYTE pattern1[7] = { 0x90, 0x90, 0x90, 0x90, 0x90, 0x8B, 0xFF };
-BYTE pattern2[7] = { 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0x8B, 0xFF };
+BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID lpReserved) {
+	BOOL result = FALSE;
 
-BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved) {
-	// get BitBlt base address
-	pBitBlt BitBlt_base =
-		GetProcAddress(GetModuleHandle("gdi32.dll"), "BitBlt");
-
-	switch (dwReason) {
-	case DLL_PROCESS_DETACH:
-		// remove hook
+	// get handle of gdi32.dll
+	HANDLE hGdi = GetModuleHandleA("gdi32.dll");
+	if (hGdi) {
+		// get BitBlt base address
+		pBitBlt BitBlt_base = GetProcAddress(hGdi, "BitBlt");
 		if (BitBlt_base) {
-			HotUnpatch(BitBlt_base);
+			switch (dwReason) {
+			case DLL_PROCESS_ATTACH:
+				// install hook
+				result = HotPatch((void*) BitBlt_base,
+								  (void*) fake_BitBlt,
+								  (void**) &origBitBlt);
+
+				break;
+			case DLL_PROCESS_DETACH:
+				// uninstall hook
+				result = HotUnpatch((void*) BitBlt_base);
+
+				break;
+			}
 		}
 
-		break;
-	case DLL_PROCESS_ATTACH:
-		// install hook
-		if (BitBlt_base) {
-			HotPatch(BitBlt_base, &fake_BitBlt, (void**) &origBitBlt);
-		}
-
-		break;
+		CloseHandle(hGdi);
 	}
 
-	return TRUE;
+	return result;
 }
 
 BOOL WINAPI fake_BitBlt(HDC hdcDest,
@@ -52,15 +54,13 @@ BOOL WINAPI fake_BitBlt(HDC hdcDest,
 
 BOOL HotPatch(void * procBase, void * hookBase, void ** ppOrigFn) {
 	BOOL result = FALSE;
-
 	// get patchBase address
-	BYTE * patchBase = (BYTE*) procBase - 5;
-	// calculate long jump offset
-	DWORD jmpOffset = (DWORD) hookBase - (DWORD) procBase - 5;
+	BYTE * patchBase = (BYTE*) procBase - LONG_JMP_SIZE;
 
 	// check if function hotpatchable
-	if (0 != memcmp(patchBase, &pattern1, 7)
-		&& 0 != memcmp(patchBase, &pattern2, 7))
+	if (LONG_NOP != *((WORD*) procBase)
+			|| PATTERN1 != *((DWORD*) patchBase)
+			&& PATTERN2 != *((DWORD*) patchBase))
 	{
 		// not hotpachable function
 		SetLastError(ERROR_INVALID_FUNCTION);
@@ -69,24 +69,24 @@ BOOL HotPatch(void * procBase, void * hookBase, void ** ppOrigFn) {
 		DWORD oldProtect;
 
 		// get write access
-		if (VirtualProtect(patchBase, 7,
+		if (VirtualProtect(patchBase, PATCH_SIZE,
 						   PAGE_EXECUTE_WRITECOPY, &oldProtect))
 		{
 			// write long jump opcode
-			*patchBase = JMP;
+			*patchBase = LONG_JMP;
 			// write long jump offset
-			memcpy(patchBase + 1, &jmpOffset, 4);
+			*((DWORD*) procBase - 1) = (DWORD) hookBase - (DWORD) procBase;
 			// write back jump
-			*((WORD*) procBase) = JMP_BACK;
+			*((WORD*) procBase) = SHORT_JMP;
 
 			result = TRUE;
 
 			// restore protection
-			VirtualProtect(patchBase, 7, oldProtect, &oldProtect);
+			VirtualProtect(patchBase, PATCH_SIZE, oldProtect, &oldProtect);
 
 			// store address to call original function code
 			if (ppOrigFn)
-				*ppOrigFn = (BYTE*) procBase + 2;
+				*ppOrigFn = (BYTE*) procBase + SHORT_JMP_SIZE;
 		}
 	}
 
@@ -96,28 +96,28 @@ BOOL HotPatch(void * procBase, void * hookBase, void ** ppOrigFn) {
 BOOL HotUnpatch(void * procBase) {
 	BOOL result = FALSE;
 
-	if (JMP_BACK != *((WORD*) procBase)) {
+	if (SHORT_JMP != *((WORD*) procBase)) {
 		// not hotpatched function
 		SetLastError(ERROR_INVALID_FUNCTION);
 	}
 	else {
 		DWORD oldProtect;
 		// get patchBase address
-		BYTE * patchBase = (BYTE*) procBase - 5;
+		BYTE * patchBase = (BYTE*) procBase - LONG_JMP_SIZE;
 
 		// get write access
-		if (VirtualProtect(patchBase, 7,
+		if (VirtualProtect(patchBase, PATCH_SIZE,
 						   PAGE_EXECUTE_WRITECOPY, &oldProtect))
 		{
 			// remove back jump
 			*((WORD*) procBase) = LONG_NOP;
 			// remove long jump
-			memset(patchBase, 0x90, 5);
+			memset(patchBase, NOP, LONG_JMP_SIZE);
 
 			result = TRUE;
 
 			// restore protection
-			VirtualProtect(patchBase, 7, oldProtect, &oldProtect);
+			VirtualProtect(patchBase, PATCH_SIZE, oldProtect, &oldProtect);
 		}
 	}
 
