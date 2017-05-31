@@ -12,10 +12,10 @@ all: injector.exe hook.dll hook_new.dll screenshot.exe
 	$(RC) -O coff $< -o $@
 
 injector.exe: injector.o error.o mszi.res
-	$(CC) $(CFLAGS) -Wl,--subsystem,windows $^ -o $@ -lkernel32
+	$(CC) $(CFLAGS) -Wl,--subsystem,console $^ -o $@ -lkernel32
 
 screenshot.exe: screenshot.o error.o mszi.res
-	$(CC) $(CFLAGS) -Wl,--subsystem,windows $^ -o $@ -lkernel32 -lgdi32
+	$(CC) $(CFLAGS) -Wl,--subsystem,console $^ -o $@ -lkernel32 -lgdi32
 
 hook.dll: hook.o
 	$(CC) $(CFLAGS) -Wl,--subsystem,windows $^ -o $@ -lkernel32 -lgdi32 -shared

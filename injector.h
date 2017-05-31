@@ -4,30 +4,32 @@
 #include "error.h"
 
 // ASM commands.
-#define PUSH			0x68
-#define NOP				0x90
-#define CALL_DWORD_PTR	0x15FF
+#define PUSH           0x68
+#define NOP            0x90
+#define CALL_DWORD_PTR 0x15FF
 
 #pragma pack(1)
 /**
- * structure for code injection
+ * Injection code structure
  */
-typedef struct tInjectStruct {
-	// code
-	BYTE cmd0;
-	BYTE cmd1;
-	DWORD cmd1ar;
-	WORD cmd2;
-	DWORD cmd2ar;
-	BYTE cmd3;
-	DWORD cmd3ar;
-	WORD cmd4;
-	DWORD cmd4ar;
-	// data
-	LPVOID pExitThread;
-	LPVOID pLoadLibraryW;
-	WCHAR LibraryPath[MAX_PATH];
-} InjectStruct, *pInjectStruct;
+typedef struct tInjectStruct
+{
+    // code
+    BYTE cmd0;
+    BYTE cmd1;
+    DWORD cmd1ar;
+    WORD cmd2;
+    DWORD cmd2ar;
+    BYTE cmd3;
+    DWORD cmd3ar;
+    WORD cmd4;
+    DWORD cmd4ar;
+    // data
+    LPVOID pExitThread;
+    LPVOID pLoadLibraryW;
+    WCHAR LibraryPath[MAX_PATH];
+}
+InjectStruct, *pInjectStruct;
 #pragma pack()
 
 /**

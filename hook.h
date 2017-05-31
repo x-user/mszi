@@ -1,34 +1,33 @@
 #ifndef __HOOK_H__
 #define __HOOK_H__
 
-#include <stdio.h>
 #include <windows.h>
 
 #define SIZE 6
 
 /**
- * BitBlt hook
+ * BitBlt hook function
  */
 BOOL WINAPI fake_BitBlt(HDC hdcDest,
-						int nXDest,
-						int nYDest,
-						int nWidth,
-						int nHeight,
-						HDC hdcSrc,
-						int nXSrc,
-						int nYSrc,
-						DWORD dwRop
+                        int nXDest,
+                        int nYDest,
+                        int nWidth,
+                        int nHeight,
+                        HDC hdcSrc,
+                        int nXSrc,
+                        int nYSrc,
+                        DWORD dwRop
 );
 
 /**
- * 1st hook install
+ * Install BitBlt hook
  */
 BOOL install_hook();
 
 /**
- * final hook deletion
+ * Remove BitBlt hook
  */
-BOOL uninstall_hook();
+BOOL remove_hook();
 
 /**
  * BitBlt pointer typedef
